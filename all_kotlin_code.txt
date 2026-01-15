@@ -1,0 +1,2189 @@
+﻿package com.anton.shopcoffeapp.presentation.fragments
+
+import androidx.navigation.ActionOnlyNavDirections
+import androidx.navigation.NavDirections
+import com.anton.shopcoffeapp.R
+
+public class DashboardFragmentDirections private constructor() {
+  public companion object {
+    public fun actionDashboardToItemList(): NavDirections =
+        ActionOnlyNavDirections(R.id.action_dashboard_to_itemList)
+
+    public fun actionDashboardToCart(): NavDirections =
+        ActionOnlyNavDirections(R.id.action_dashboard_to_cart)
+
+    public fun actionDashboardToItemDetail(): NavDirections =
+        ActionOnlyNavDirections(R.id.action_dashboard_to_itemDetail)
+  }
+}
+package com.anton.shopcoffeapp.presentation.fragments
+
+import androidx.navigation.ActionOnlyNavDirections
+import androidx.navigation.NavDirections
+import com.anton.shopcoffeapp.R
+
+public class SplashFragmentDirections private constructor() {
+  public companion object {
+    public fun actionSplashToDashboard(): NavDirections =
+        ActionOnlyNavDirections(R.id.action_splash_to_dashboard)
+  }
+}
+package com.anton.shopcoffeapp
+
+import android.app.Application
+import com.anton.shopcoffeapp.di.AppComponent
+
+class App : Application() {
+    val appComponent: AppComponent by lazy {
+        DaggerAppComponent.factory().create(applicationContext)
+    }
+}
+package com.anton.shopcoffeapp
+
+package com.anton.shopcoffeapp.data.api
+
+import com.anton.shopcoffeapp.data.model.BannerDto
+import com.anton.shopcoffeapp.data.model.CategoryDto
+import com.anton.shopcoffeapp.data.model.CreateOrderRequest
+import com.anton.shopcoffeapp.data.model.ItemDto
+import com.anton.shopcoffeapp.data.model.OrderDto
+import com.anton.shopcoffeapp.data.model.PopularDto
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.Path
+
+interface CoffeeApiService {
+    @GET("api/banners")
+    suspend fun getBanners(): List<BannerDto>
+
+    @GET("api/categories")
+    suspend fun getCategories(): List<CategoryDto>
+
+    @GET("api/populars")
+    suspend fun getPopulars(): List<PopularDto>
+
+    @GET("api/items")
+    suspend fun getItems(): List<ItemDto>
+
+    @GET("api/items/category/{categoryId}")
+    suspend fun getItemsByCategory(@Path("categoryId") categoryId: Int): List<ItemDto>
+
+    @POST("api/orders")
+    suspend fun createOrder(@Body request: CreateOrderRequest): OrderDto
+}
+package com.anton.shopcoffeapp.data.model
+
+import com.anton.shopcoffeapp.domain.model.Banner
+
+data class BannerDto(
+    val id: Int,
+    val url: String
+) {
+    fun toDomain(): Banner = Banner(id, url)
+}
+package com.anton.shopcoffeapp.data.model
+
+import com.anton.shopcoffeapp.domain.model.CartItem
+
+data class CartUiState(
+    val items: List<CartItem> = emptyList(),
+    val subtotal: Double = 0.0,
+    val deliveryFee: Double = 0.0,
+    val tax: Double = 0.0,
+    val discount: Double = 0.0,
+    val total: Double = 0.0,
+    val promoCode: String? = null,
+    val isPromoApplied: Boolean = false,
+    val promoError: String? = null,
+    val orderStatus: OrderStatus = OrderStatus.None
+)
+package com.anton.shopcoffeapp.data.model
+
+import com.anton.shopcoffeapp.domain.model.Category
+
+data class CategoryDto(
+    val id: Int,
+    val title: String
+) {
+    fun toDomain(): Category = Category(id, title)
+}
+package com.anton.shopcoffeapp.data.model
+
+enum class CoffeeSize(val displayName: String, val priceMultiplier: Double) {
+    SMALL("Small", 0.9),
+    MEDIUM("Medium", 1.0),
+    LARGE("Large", 1.2)
+}
+package com.anton.shopcoffeapp.data.model
+
+data class CreateOrderRequest(
+    val customerName: String,
+    val items: List<OrderItemDto>,
+    val promoCode: String? = null,
+    val discount: Double = 0.0,
+    val total: Double
+)
+package com.anton.shopcoffeapp.data.model
+
+import com.anton.shopcoffeapp.domain.model.Item
+
+data class ItemDto(
+    val id: Int,
+    val categoryId: Int,
+    val title: String,
+    val description: String,
+    val extra: String,
+    val price: Double,
+    val rating: Double,
+    val picUrl: String
+) {
+    fun toDomain(): Item = Item(
+        id = id,
+        categoryId = categoryId,
+        title = title,
+        description = description,
+        extra = extra,
+        price = price,
+        rating = rating,
+        picUrl = picUrl
+    )
+}
+package com.anton.shopcoffeapp.data.model
+
+import java.math.BigDecimal
+
+data class OrderDto(
+    val id: Int,
+    val customerName: String,
+    val createdAt: String,
+    val status: String,
+    val totalPrice: BigDecimal,
+    val orderItems: List<OrderItemDto>
+)
+package com.anton.shopcoffeapp.data.model
+
+data class OrderItemDto(
+    val itemId: Int,
+    val quantity: Int,
+    val price: Double
+)
+package com.anton.shopcoffeapp.data.model
+
+sealed class OrderStatus {
+    object None : OrderStatus()
+    object Loading : OrderStatus()
+    data class Success(val message: String) : OrderStatus()
+    data class Error(val message: String) : OrderStatus()
+}
+package com.anton.shopcoffeapp.data.model
+
+import com.anton.shopcoffeapp.domain.model.Popular
+
+data class PopularDto(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val extra: String,
+    val price: Double,
+    val rating: Double,
+    val picUrl: String
+) {
+    fun toDomain(): Popular = Popular(
+        id = id,
+        title = title,
+        description = description,
+        extra = extra,
+        price = price,
+        rating = rating,
+        picUrl = picUrl
+    )
+}
+package com.anton.shopcoffeapp.data.repository
+
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.repository.CartRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import javax.inject.Inject
+
+class CartRepositoryImpl @Inject constructor() : CartRepository {
+    private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
+
+    override fun addToCart(item: Item) {
+        val currentItems = _cartItems.value
+        val updated = if (currentItems.any { it.item.id == item.id }) {
+            currentItems.map {
+                if (it.item.id == item.id) it.copy(quantity = it.quantity + 1)
+                else it
+            }
+        } else {
+            currentItems + CartItem(item, 1)
+        }
+        _cartItems.value = updated
+    }
+
+
+    override fun removeFromCart(itemId: Int) {
+        val currentItems = _cartItems.value.toMutableList()
+        currentItems.removeAll { it.item.id == itemId }
+        _cartItems.value = currentItems
+    }
+
+    override fun updateQuantity(itemId: Int, quantity: Int) {
+        val updated = _cartItems.value.mapNotNull { cartItem ->
+            if (cartItem.item.id == itemId) {
+                if (quantity <= 0) null
+                else cartItem.copy(quantity = quantity)
+            } else cartItem
+        }
+        _cartItems.value = updated
+    }
+
+
+    override fun getCartItems(): Flow<List<CartItem>> = _cartItems
+
+    override fun clearCart() {
+        _cartItems.value = emptyList()
+    }
+}
+package com.anton.shopcoffeapp.data.repository
+
+import com.anton.shopcoffeapp.data.api.CoffeeApiService
+import com.anton.shopcoffeapp.data.model.CreateOrderRequest
+import com.anton.shopcoffeapp.data.model.OrderItemDto
+import com.anton.shopcoffeapp.domain.model.Banner
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.model.Category
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.model.Popular
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+
+class CoffeeRepositoryImpl @Inject constructor(
+    private val apiService: CoffeeApiService,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
+) : CoffeeRepository {
+
+    override suspend fun getBanners(): Result<List<Banner>> = withContext(dispatcher) {
+        runCatching { apiService.getBanners().map { it.toDomain() } }
+    }
+
+    override suspend fun getCategories(): Result<List<Category>> = withContext(dispatcher) {
+        runCatching { apiService.getCategories().map { it.toDomain() } }
+    }
+
+    override suspend fun getPopularItems(): Result<List<Popular>> = withContext(dispatcher) {
+        runCatching { apiService.getPopulars().map { it.toDomain() } }
+    }
+
+    override suspend fun getItemsByCategory(categoryId: Int): Result<List<Item>> = withContext(dispatcher) {
+        runCatching { apiService.getItemsByCategory(categoryId).map { it.toDomain() } }
+    }
+
+    override suspend fun getAllItems(): Result<List<Item>> = withContext(dispatcher) {
+        runCatching { apiService.getItems().map { it.toDomain() } }
+    }
+
+    override suspend fun createOrder(
+        customerName: String,
+        items: List<CartItem>,
+        promoCode: String?,
+        discount: Double,
+        total: Double
+    ): Result<Boolean> = withContext(dispatcher) {
+        runCatching {
+            val orderItems = items.map {
+                OrderItemDto(it.item.id, it.quantity, it.item.price)
+            }
+            val request = CreateOrderRequest(
+                customerName = customerName,
+                items = orderItems,
+                promoCode = promoCode,
+                discount = discount,
+                total = total
+            )
+            apiService.createOrder(request)
+            true
+        }
+    }
+}
+package com.anton.shopcoffeapp.di
+
+import android.content.Context
+import com.anton.shopcoffeapp.features.cart.di.CartComponent
+import com.anton.shopcoffeapp.features.dashboard.di.DashboardComponent
+import com.anton.shopcoffeapp.features.itemlist.di.ItemListComponent
+import dagger.BindsInstance
+import dagger.Component
+import javax.inject.Singleton
+
+@Singleton
+@Component(
+    modules = [
+        NetworkModule::class,
+        RepositoryModule::class,
+        ViewModelModule::class
+    ]
+)
+interface AppComponent {
+    fun cartComponent() : CartComponent.Factory
+    fun dashBoardComponent() : DashboardComponent.Factory
+    fun itemListComponent() : ItemListComponent.Factory
+
+    @Component.Factory
+    interface Factory {
+        fun create(
+            @BindsInstance context: Context
+        ) : AppComponent
+    }
+}
+package com.anton.shopcoffeapp.di
+
+import com.anton.shopcoffeapp.data.api.CoffeeApiService
+import dagger.Module
+import dagger.Provides
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+
+@Module
+abstract class NetworkModule {
+    @Provides
+    fun bindCoffeeApi() : CoffeeApiService = bindCreateApiService()
+
+    @Provides
+    fun bindCreateApiService() : CoffeeApiService {
+        val loggingInterceptor = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+
+        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
+
+        val sslContext = SSLContext.getInstance("SSL").apply {
+            init(null, trustAllCerts, SecureRandom())
+        }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor)
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl("https://10.0.2.2:8443/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(CoffeeApiService::class.java)
+    }
+}
+package com.anton.shopcoffeapp.di
+
+import com.anton.shopcoffeapp.data.repository.CartRepositoryImpl
+import com.anton.shopcoffeapp.data.repository.CoffeeRepositoryImpl
+import com.anton.shopcoffeapp.domain.repository.CartRepository
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import dagger.Binds
+import dagger.Module
+
+@Module
+abstract class RepositoryModule {
+    @Binds
+    abstract fun bindCartRepository(
+        impl : CartRepositoryImpl
+    ) : CartRepository
+
+    @Binds
+    abstract fun bindCoffeeRepository(
+        impl: CoffeeRepositoryImpl
+    ) : CoffeeRepository
+}
+package com.anton.shopcoffeapp.di
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import java.security.Provider
+import javax.inject.Inject
+
+
+class ViewModelFactory @Inject constructor(
+    private val creators: Map<Class<out ViewModel>, @JvmSuppressWildcards Provider<ViewModel>>
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        val creator = creators[modelClass]
+            ?: creators.entries.firstOrNull { modelClass.isAssignableFrom(it.key) }?.value
+            ?: throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+        return creator.get() as T
+    }
+}
+package com.anton.shopcoffeapp.di
+
+import androidx.lifecycle.ViewModelProvider
+import dagger.Binds
+import dagger.Module
+
+@Module
+abstract class ViewModelFactoryModule {
+    @Binds
+    abstract fun bindViewModelFactory(factory: ViewModelFactory): ViewModelProvider.Factory
+}
+package com.anton.shopcoffeapp.di
+
+import androidx.lifecycle.ViewModel
+import dagger.MapKey
+import kotlin.reflect.KClass
+
+@MustBeDocumented
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@MapKey
+annotation class ViewModelKey(val value : KClass<out ViewModel>)
+package com.anton.shopcoffeapp.di
+
+import androidx.lifecycle.ViewModel
+import com.anton.shopcoffeapp.features.cart.viewmodel.CartViewModel
+import com.anton.shopcoffeapp.features.dashboard.viewmodel.DashboardViewModel
+import com.anton.shopcoffeapp.features.itemlist.viewmodel.ItemListViewModel
+import dagger.Binds
+import dagger.Module
+import dagger.multibindings.IntoMap
+
+@Module
+abstract class ViewModelModule {
+    @Binds
+    @IntoMap
+    @ViewModelKey(CartViewModel::class)
+    abstract fun bindCartViewModel(viewModel: CartViewModel): ViewModel
+
+    @Binds
+    @IntoMap
+    @ViewModelKey(DashboardViewModel::class)
+    abstract fun bindDashboardViewModel(viewModel: DashboardViewModel): ViewModel
+
+    @Binds
+    @IntoMap
+    @ViewModelKey(ItemListViewModel::class)
+    abstract fun bindItemListViewModel(viewModel: ItemListViewModel): ViewModel
+}
+package com.anton.shopcoffeapp.domain.model
+
+data class Banner(
+    val id: Int,
+    val url: String
+)
+package com.anton.shopcoffeapp.domain.model
+
+data class CartItem(
+    val item: Item,
+    val quantity: Int
+) {
+    val totalPrice: Double get() = item.price * quantity
+}
+package com.anton.shopcoffeapp.domain.model
+
+data class Category(
+    val id: Int,
+    val title: String
+)
+package com.anton.shopcoffeapp.domain.model
+
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
+data class Item(
+    val id: Int,
+    val categoryId: Int,
+    val title: String,
+    val description: String,
+    val extra: String,
+    val price: Double,
+    val rating: Double,
+    val picUrl: String
+) : Parcelable
+package com.anton.shopcoffeapp.domain.model
+
+data class Popular(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val extra: String,
+    val price: Double,
+    val rating: Double,
+    val picUrl: String
+)
+package com.anton.shopcoffeapp.domain.repository
+
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.model.Item
+import kotlinx.coroutines.flow.Flow
+
+interface CartRepository {
+    fun addToCart(item: Item)
+    fun removeFromCart(itemId: Int)
+    fun updateQuantity(itemId: Int, quantity: Int)
+    fun getCartItems(): Flow<List<CartItem>>
+    fun clearCart()
+}
+package com.anton.shopcoffeapp.domain.repository
+
+import com.anton.shopcoffeapp.domain.model.Banner
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.model.Category
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.model.Popular
+
+interface CoffeeRepository {
+    suspend fun getBanners(): Result<List<Banner>>
+    suspend fun getCategories(): Result<List<Category>>
+    suspend fun getPopularItems(): Result<List<Popular>>
+    suspend fun getItemsByCategory(categoryId: Int): Result<List<Item>>
+    suspend fun getAllItems(): Result<List<Item>>
+
+    suspend fun createOrder(
+        customerName: String,
+        items: List<CartItem>,
+        promoCode: String? = null,
+        discount: Double = 0.0,
+        total: Double
+    ): Result<Boolean>
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.repository.CartRepository
+import javax.inject.Inject
+
+class AddToCartUseCase @Inject constructor(
+    private val cartRepository: CartRepository
+) {
+    suspend operator fun invoke(item: Item) {
+        cartRepository.addToCart(item)
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import javax.inject.Inject
+
+class ApplyPromoCodeUseCase @Inject constructor() {
+    suspend operator fun invoke(code: String, subtotal: Double): Result<Double> {
+        return try {
+            val discount = when (code.uppercase()) {
+                "DISCOUNT10" -> subtotal * 0.1
+                "FREESHIP" -> if (subtotal > 20) 2.0 else 0.0
+                else -> throw IllegalArgumentException("Invalid promo code")
+            }
+            Result.success(discount)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import javax.inject.Inject
+
+class CreateOrderUseCase @Inject constructor(
+    private val repository: CoffeeRepository
+) {
+    suspend operator fun invoke(
+        customerName: String,
+        items: List<CartItem>,
+        promoCode: String? = null,
+        discount: Double = 0.0,
+        total: Double
+    ): Result<Boolean> {
+        return repository.createOrder(customerName, items, promoCode, discount, total)
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import javax.inject.Inject
+
+class GetAllItemsUseCase @Inject constructor(
+    private val repository: CoffeeRepository
+) {
+    suspend operator fun invoke(): Result<List<Item>> {
+        return repository.getAllItems()
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.Banner
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import javax.inject.Inject
+
+class GetBannersUseCase @Inject constructor(
+    private val repository: CoffeeRepository
+) {
+    suspend operator fun invoke(): Result<List<Banner>> {
+        return repository.getBanners()
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.repository.CartRepository
+import javax.inject.Inject
+
+class GetCartItemsUseCase @Inject constructor(
+    private val cartRepository: CartRepository
+) {
+    fun invoke() = cartRepository.getCartItems()
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.Category
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import javax.inject.Inject
+
+class GetCategoriesUseCase @Inject constructor(
+    private val repository: CoffeeRepository
+) {
+    suspend operator fun invoke(): Result<List<Category>> {
+        return repository.getCategories()
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import javax.inject.Inject
+
+class GetItemsByCategoryUseCase @Inject constructor(
+    private val repository: CoffeeRepository
+) {
+    suspend operator fun invoke(categoryId: Int): Result<List<Item>> {
+        return repository.getItemsByCategory(categoryId)
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.model.Popular
+import com.anton.shopcoffeapp.domain.repository.CoffeeRepository
+import javax.inject.Inject
+
+class GetPopularItemsUseCase @Inject constructor(
+    private val repository: CoffeeRepository
+) {
+    suspend operator fun invoke(): Result<List<Popular>> {
+        return repository.getPopularItems()
+    }
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.repository.CartRepository
+import javax.inject.Inject
+
+class RemoveFromCartUseCase @Inject constructor(
+    private val cartRepository: CartRepository
+) {
+    fun invoke(itemId : Int) = cartRepository.removeFromCart(itemId)
+}
+package com.anton.shopcoffeapp.domain.usecase
+
+import com.anton.shopcoffeapp.domain.repository.CartRepository
+import javax.inject.Inject
+
+class UpdateQuantityUseCase @Inject constructor(
+    private val cartRepository: CartRepository
+) {
+    fun invoke(itemId: Int, quantity: Int) = cartRepository.updateQuantity(itemId, quantity)
+}
+package com.anton.shopcoffeapp.features.cart.di
+
+import com.anton.shopcoffeapp.presentation.fragments.CartFragment
+import dagger.Subcomponent
+
+@CartScope
+@Subcomponent
+interface CartComponent {
+    fun inject(cartFragment: CartFragment)
+
+    @Subcomponent.Factory
+    interface Factory {
+        fun create(): CartComponent
+    }
+}
+package com.anton.shopcoffeapp.features.cart.di
+
+import javax.inject.Scope
+
+@Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class CartScope
+package com.anton.shopcoffeapp.features.cart.di
+
+import androidx.lifecycle.ViewModel
+import com.anton.shopcoffeapp.di.ViewModelKey
+import com.anton.shopcoffeapp.features.cart.viewmodel.CartViewModel
+import dagger.Binds
+import dagger.Module
+import dagger.multibindings.IntoMap
+
+@Module
+abstract class CartViewModelModule {
+    @Binds
+    @IntoMap
+    @ViewModelKey(CartViewModel::class)
+    abstract fun bindCartViewModel(
+        viewModel: CartViewModel
+    ) : ViewModel
+}
+package com.anton.shopcoffeapp.features.cart.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.anton.shopcoffeapp.data.model.OrderStatus
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.usecase.AddToCartUseCase
+import com.anton.shopcoffeapp.domain.usecase.ApplyPromoCodeUseCase
+import com.anton.shopcoffeapp.domain.usecase.CreateOrderUseCase
+import com.anton.shopcoffeapp.domain.usecase.GetCartItemsUseCase
+import com.anton.shopcoffeapp.domain.usecase.RemoveFromCartUseCase
+import com.anton.shopcoffeapp.domain.usecase.UpdateQuantityUseCase
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import kotlin.math.max
+
+
+class CartViewModel @Inject constructor(
+    private val updateQuantityUseCase: UpdateQuantityUseCase,
+    private val removeFromCartUseCase: RemoveFromCartUseCase,
+    private val getCartItemsUseCase: GetCartItemsUseCase,
+    private val createOrderUseCase: CreateOrderUseCase,
+    private val applyPromoCodeUseCase: ApplyPromoCodeUseCase
+) : ViewModel() {
+    private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
+    val cartItem : StateFlow<List<CartItem>> get() = _cartItems
+
+    private val _promoCode = MutableStateFlow<String?>(null)
+    val promoCode: StateFlow<String?> get() = _promoCode
+
+    private val _discountAmount = MutableStateFlow(0.0)
+    val discountAmount: StateFlow<Double> get() = _discountAmount
+
+    private val _orderStatus = MutableStateFlow<OrderStatus>(OrderStatus.None)
+    val orderStatus: StateFlow<OrderStatus> get() = _orderStatus
+
+    fun updateQuantity(itemId : Int, newQuantity : Int) {
+        updateQuantityUseCase.invoke(itemId, newQuantity)
+    }
+
+    val cartSubtotal: StateFlow<Double> = _cartItems
+        .map { it.sumOf { cart -> cart.totalPrice } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val deliveryFee: StateFlow<Double> = cartSubtotal.map {
+        if (it > 0 && it < 50) 2.0 else 0.0
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val tax: StateFlow<Double> = combine(cartSubtotal, deliveryFee) { sub, delivery ->
+        (sub + delivery) * 0.1 // 10% tax
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val cartTotal: StateFlow<Double> = combine(cartSubtotal, deliveryFee, tax, discountAmount) {
+            sub, delivery, tax, discount ->
+        max(0.0, sub + delivery + tax - discount)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    private val _isPromoApplied = MutableStateFlow(false)
+    val isPromoApplied: StateFlow<Boolean> get() = _isPromoApplied
+
+    private val _promoError = MutableStateFlow<String?>(null)
+    val promoError: StateFlow<String?> get() = _promoError
+
+    fun loadCartItems() = viewModelScope.launch {
+        getCartItemsUseCase.invoke().collect { items->
+             _cartItems.value = items
+        }
+    }
+
+    fun createOrder(customerName: String ?= null) = viewModelScope.launch {
+        if (_cartItems.value.isEmpty()) {
+            _orderStatus.value = OrderStatus.Error("Cart is empty")
+            return@launch
+        }
+
+        _orderStatus.value = OrderStatus.Loading
+
+        try {
+            val orderName = customerName ?: "Guest"
+            createOrderUseCase(
+                customerName = orderName,
+                items = _cartItems.value,
+                promoCode = _promoCode.value,
+                discount = _discountAmount.value,
+                total = cartTotal.value
+            ).onSuccess {
+                clearCart()
+                removePromoCode()
+                _orderStatus.value = OrderStatus.Success("Order created successfully!")
+            }.onFailure { exception ->
+                _orderStatus.value = OrderStatus.Error(exception.message ?: "Failed to create order")
+            }
+        } catch (e: Exception) {
+            _orderStatus.value = OrderStatus.Error(e.message ?: "Unknown error")
+        }
+    }
+
+    private fun removePromoCode() {
+        _promoCode.value = null
+        _discountAmount.value = 0.0
+        _isPromoApplied.value = false
+        _promoError.value = null
+    }
+
+    fun removeFromCart(itemId : Int) {
+        removeFromCartUseCase.invoke(itemId)
+    }
+
+    fun applyPromoCode(code : String) = viewModelScope.launch {
+        _promoError.value = null
+        val result = applyPromoCodeUseCase(code, cartSubtotal.value)
+
+        result.onSuccess { discount ->
+            _promoCode.value = code
+            _discountAmount.value = discount
+            _isPromoApplied.value = true
+        }.onFailure { exception ->
+            _promoError.value = exception.message
+            _promoCode.value = null
+            _discountAmount.value = 0.0
+            _isPromoApplied.value = false
+        }
+    }
+
+    fun clearCart() {
+        _cartItems.value = emptyList()
+    }
+}
+package com.anton.shopcoffeapp.features.dashboard.di
+
+import com.anton.shopcoffeapp.presentation.fragments.DashboardFragment
+import dagger.Subcomponent
+
+@DashboardScope
+@Subcomponent
+interface DashboardComponent {
+    fun inject(dashboardFragment: DashboardFragment)
+
+    @Subcomponent.Factory
+    interface Factory {
+        fun create(): DashboardComponent
+    }
+}
+package com.anton.shopcoffeapp.features.dashboard.di
+
+import dagger.Component
+import javax.inject.Scope
+
+@Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class DashboardScope
+package com.anton.shopcoffeapp.features.dashboard.di
+
+import androidx.lifecycle.ViewModel
+import com.anton.shopcoffeapp.di.ViewModelKey
+import com.anton.shopcoffeapp.features.dashboard.viewmodel.DashboardViewModel
+import dagger.Binds
+import dagger.Module
+import dagger.multibindings.IntoMap
+
+@Module
+abstract class DashboardViewModelModule {
+    @Binds
+    @IntoMap
+    @ViewModelKey(DashboardViewModel::class)
+    abstract fun bindDashBoardViewModel(
+        viewModel: DashboardViewModel
+    ) : ViewModel
+}
+package com.anton.shopcoffeapp.features.dashboard.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.anton.shopcoffeapp.domain.model.Banner
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.anton.shopcoffeapp.domain.model.Category
+import com.anton.shopcoffeapp.domain.model.Popular
+import com.anton.shopcoffeapp.domain.usecase.GetBannersUseCase
+import com.anton.shopcoffeapp.domain.usecase.GetCategoriesUseCase
+import com.anton.shopcoffeapp.domain.usecase.GetPopularItemsUseCase
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+
+class DashboardViewModel @Inject constructor(
+    private val getBannersUseCase: GetBannersUseCase,
+    private val getCategoriesUseCase: GetCategoriesUseCase,
+    private val getPopularItemsUseCase : GetPopularItemsUseCase
+) : ViewModel() {
+
+    private val _banner = MutableStateFlow<List<Banner>>(emptyList())
+    val banner : StateFlow<List<Banner>> get() = _banner
+
+    private val _categories = MutableStateFlow<List<Category>>(emptyList())
+    val categories : StateFlow<List<Category>> get() = _categories
+
+    private val _popularItems = MutableStateFlow<List<Popular>>(emptyList())
+    val popularItems : StateFlow<List<Popular>> get() = _popularItems
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    fun initDashboardData() = viewModelScope.launch {
+        _isLoading.value = true
+        try {
+            getBannersUseCase.invoke().onSuccess { _banner.value = it }
+            getCategoriesUseCase.invoke().onSuccess { _categories.value = it }
+            getPopularItemsUseCase.invoke().onSuccess { _popularItems.value = it }
+        } finally {
+            _isLoading.value = false
+        }
+    }
+}
+package com.anton.shopcoffeapp.features.itemlist.di
+
+import com.anton.shopcoffeapp.presentation.fragments.ItemListFragment
+import dagger.Subcomponent
+
+@ItemListScope
+@Subcomponent
+interface ItemListComponent {
+    fun inject(itemListFragment: ItemListFragment)
+
+    @Subcomponent.Factory
+    interface Factory {
+        fun create(): ItemListComponent
+    }
+}
+package com.anton.shopcoffeapp.features.itemlist.di
+
+import javax.inject.Scope
+
+@Scope
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ItemListScope
+package com.anton.shopcoffeapp.features.itemlist.di
+
+import androidx.lifecycle.ViewModel
+import com.anton.shopcoffeapp.di.ViewModelKey
+import com.anton.shopcoffeapp.features.itemlist.viewmodel.ItemListViewModel
+import dagger.Binds
+import dagger.Module
+import dagger.multibindings.IntoMap
+
+@Module
+abstract class ItemListViewModelModule {
+    @Binds
+    @IntoMap
+    @ViewModelKey(ItemListViewModel::class)
+    abstract fun bindItemListViewModel(
+        viewModel: ItemListViewModel
+    ) : ViewModel
+}
+package com.anton.shopcoffeapp.features.itemlist.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.anton.shopcoffeapp.data.model.CoffeeSize
+import com.anton.shopcoffeapp.domain.model.Category
+import com.anton.shopcoffeapp.domain.model.Item
+import com.anton.shopcoffeapp.domain.usecase.AddToCartUseCase
+import com.anton.shopcoffeapp.domain.usecase.GetAllItemsUseCase
+import com.anton.shopcoffeapp.domain.usecase.GetItemsByCategoryUseCase
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+class ItemListViewModel @Inject constructor(
+    private val getAllItemsUseCase: GetAllItemsUseCase,
+    private val getItemsByCategoryUseCase: GetItemsByCategoryUseCase,
+    private val addToCartUseCase: AddToCartUseCase
+) : ViewModel() {
+    private val _selectedCategory = MutableStateFlow<Category?>(null)
+    val selectedCategory: StateFlow<Category?> = _selectedCategory
+
+    private val _selectedItem = MutableStateFlow<Item?>(null)
+    val selectedItem: StateFlow<Item?> = _selectedItem
+
+    private val _items = MutableStateFlow<List<Item>>(emptyList())
+    val items: StateFlow<List<Item>> = _items
+
+    private val _categories = MutableStateFlow<List<Category>>(emptyList())
+    val categories: StateFlow<List<Category>> = _categories
+
+    private val selectedSize = MutableStateFlow(CoffeeSize.MEDIUM)
+    private val quantity = MutableStateFlow(1)
+
+    fun loadItems(categoryId: Int? = null, searchQuery: String? = null) = viewModelScope.launch {
+        val result = when {
+            searchQuery != null -> getAllItemsUseCase().map { list ->
+                list.filter { it.title.contains(searchQuery, ignoreCase = true) }
+            }
+            categoryId != null -> {
+                _selectedCategory.value = _categories.value.find { it.id == categoryId }
+                getItemsByCategoryUseCase(categoryId)
+            }
+            else -> {
+                _selectedCategory.value = null
+                getAllItemsUseCase()
+            }
+        }
+        result.onSuccess { _items.value = it }
+    }
+
+    fun addToCart() = viewModelScope.launch {
+        selectedItem.value?.let { item ->
+            val adjusted = item.copy(
+                price = item.price * selectedSize.value.priceMultiplier,
+                extra = "${item.extra} (${selectedSize.value.displayName})"
+            )
+            repeat(quantity.value) { addToCartUseCase(adjusted) }
+        }
+    }
+}
+package com.anton.shopcoffeapp.presentation.adapters
+
+import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.domain.model.CartItem
+import com.bumptech.glide.Glide
+import com.google.android.material.imageview.ShapeableImageView
+
+class CartAdapter(
+    private val onQuantityChanged: (Int, Int) -> Unit,
+    private val onItemRemoved: (Int) -> Unit
+) : ListAdapter<CartItem, CartAdapter.CartViewHolder>(DiffCallback) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CartViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.viewholder_cart, parent, false)
+        return CartViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: CartViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    inner class CartViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val productImage: ShapeableImageView = itemView.findViewById(R.id.productImage)
+        private val productTitle: TextView = itemView.findViewById(R.id.productTitle)
+        private val unitPrice: TextView = itemView.findViewById(R.id.unitPrice)
+        private val quantityText: TextView = itemView.findViewById(R.id.quantityText)
+        private val totalPrice: TextView = itemView.findViewById(R.id.totalPrice)
+        private val decreaseButton: TextView = itemView.findViewById(R.id.decreaseButton)
+        private val increaseButton: TextView = itemView.findViewById(R.id.increaseButton)
+        private val closeButton: ImageView = itemView.findViewById(R.id.closeButton)
+
+        fun bind(cartItem: CartItem) {
+            val item = cartItem.item
+
+            productTitle.text = item.title
+            unitPrice.text = "$${"%.2f".format(item.price)}"
+            quantityText.text = cartItem.quantity.toString()
+            totalPrice.text = "$${"%.2f".format(cartItem.totalPrice)}"
+
+            Glide.with(itemView.context)
+                .load(item.picUrl)
+                .into(productImage)
+
+            decreaseButton.setOnClickListener {
+                val newQuantity = cartItem.quantity - 1
+                if (newQuantity >= 0) {
+                    onQuantityChanged(item.id, newQuantity)
+                }
+                Log.d("Clickable", "Minus item")
+            }
+
+            increaseButton.setOnClickListener {
+                val newQuantity = cartItem.quantity + 1
+                onQuantityChanged(item.id, newQuantity)
+                Log.d("Clickable", "Plus item")
+            }
+
+            closeButton.setOnClickListener {
+                onItemRemoved(item.id)
+            }
+        }
+    }
+
+    companion object DiffCallback : DiffUtil.ItemCallback<CartItem>() {
+        override fun areItemsTheSame(oldItem: CartItem, newItem: CartItem): Boolean {
+            return oldItem.item.id == newItem.item.id
+        }
+
+        override fun areContentsTheSame(oldItem: CartItem, newItem: CartItem): Boolean {
+            return oldItem == newItem
+        }
+    }
+}
+package com.anton.shopcoffeapp.presentation.adapters
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.domain.model.Category
+
+class CategoryAdapter(
+    private val onCategoryClick: (Category) -> Unit
+) : ListAdapter<Category, CategoryAdapter.CategoryViewHolder>(DiffCallback) {
+
+    private var selectedPosition = 0
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.viewholder_category, parent, false)
+        return CategoryViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
+        holder.bind(getItem(position), position == selectedPosition)
+    }
+
+    fun setSelectedCategory(position: Int) {
+        val previousPosition = selectedPosition
+        selectedPosition = position
+        notifyItemChanged(previousPosition)
+        notifyItemChanged(selectedPosition)
+    }
+
+    inner class CategoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val title: TextView = itemView.findViewById(R.id.titleCat)
+
+        fun bind(category: Category, isSelected: Boolean) {
+            title.text = category.title
+            itemView.background = if (isSelected) {
+                ContextCompat.getDrawable(itemView.context, R.drawable.orange_bg)
+            } else {
+                ContextCompat.getDrawable(itemView.context, R.drawable.white_bg)
+            }
+
+            itemView.setOnClickListener {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    setSelectedCategory(position)
+                    onCategoryClick(category)
+                }
+            }
+        }
+    }
+
+    companion object DiffCallback : DiffUtil.ItemCallback<Category>() {
+        override fun areItemsTheSame(oldItem: Category, newItem: Category): Boolean {
+            return oldItem.id == newItem.id
+        }
+
+        override fun areContentsTheSame(oldItem: Category, newItem: Category): Boolean {
+            return oldItem == newItem
+        }
+    }
+}
+package com.anton.shopcoffeapp.presentation.adapters
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.RatingBar
+import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.domain.model.Item
+import com.bumptech.glide.Glide
+import com.google.android.material.imageview.ShapeableImageView
+
+class ItemListAdapter(
+    private val onItemClick: (Item) -> Unit,
+    private val onAddToCart: (Item) -> Unit
+) : ListAdapter<Item, RecyclerView.ViewHolder>(DiffCallback) {
+
+    override fun getItemViewType(position: Int): Int {
+        return if (position % 2 == 0) VIEW_TYPE_LEFT else VIEW_TYPE_RIGHT
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return when (viewType) {
+            VIEW_TYPE_LEFT -> {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.viewholder_item_pic_left, parent, false)
+                ItemLeftViewHolder(view)
+            }
+            VIEW_TYPE_RIGHT -> {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.viewholder_item_pic_right, parent, false)
+                ItemRightViewHolder(view)
+            }
+            else -> throw IllegalArgumentException("Unknown view type: $viewType")
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (holder) {
+            is ItemLeftViewHolder -> holder.bind(getItem(position))
+            is ItemRightViewHolder -> holder.bind(getItem(position))
+        }
+    }
+
+    inner class ItemLeftViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val imageView: ShapeableImageView = itemView.findViewById(R.id.imageView)
+        private val titleTextView: TextView = itemView.findViewById(R.id.textView)
+        private val ratingBar: RatingBar = itemView.findViewById(R.id.ratingBar)
+        private val priceTextView: TextView = itemView.findViewById(R.id.textView2)
+
+        fun bind(item: Item) {
+            titleTextView.text = item.title
+            priceTextView.text = "$${item.price}"
+            ratingBar.rating = item.rating.toFloat()
+
+            Glide.with(itemView.context)
+                .load(item.picUrl)
+                .into(imageView)
+
+            itemView.setOnClickListener {
+                onItemClick(item)
+            }
+
+            itemView.setOnLongClickListener {
+                onAddToCart(item)
+                true
+            }
+        }
+    }
+
+    inner class ItemRightViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val imageView: ShapeableImageView = itemView.findViewById(R.id.imageView)
+        private val titleTextView: TextView = itemView.findViewById(R.id.textView)
+        private val ratingBar: RatingBar = itemView.findViewById(R.id.ratingBar)
+        private val priceTextView: TextView = itemView.findViewById(R.id.textView2)
+
+        fun bind(item: Item) {
+            titleTextView.text = item.title
+            priceTextView.text = "$${item.price}"
+            ratingBar.rating = item.rating.toFloat()
+
+            Glide.with(itemView.context)
+                .load(item.picUrl)
+                .into(imageView)
+
+            itemView.setOnClickListener {
+                onItemClick(item)
+            }
+
+            itemView.setOnLongClickListener {
+                onAddToCart(item)
+                true
+            }
+        }
+    }
+
+    companion object {
+        private const val VIEW_TYPE_LEFT = 0
+        private const val VIEW_TYPE_RIGHT = 1
+        val DiffCallback = object : DiffUtil.ItemCallback<Item>() {
+            override fun areItemsTheSame(oldItem: Item, newItem: Item): Boolean {
+                return oldItem.id == newItem.id
+            }
+
+            override fun areContentsTheSame(oldItem: Item, newItem: Item): Boolean {
+                return oldItem == newItem
+            }
+        }
+    }
+}
+package com.anton.shopcoffeapp.presentation.adapters
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.appcompat.widget.AppCompatImageButton
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.domain.model.Popular
+import com.bumptech.glide.Glide
+import com.google.android.material.imageview.ShapeableImageView
+
+class PopularAdapter(
+    private val onItemClick: (Popular) -> Unit,
+    private val onAddToCart: (Popular) -> Unit
+) : ListAdapter<Popular, PopularAdapter.PopularViewHolder>(DiffCallback) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PopularViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.viewholder_popular, parent, false)
+        return PopularViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: PopularViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    inner class PopularViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val coffeeImageView: ShapeableImageView = itemView.findViewById(R.id.coffeeImageView)
+        private val titleTextView: TextView = itemView.findViewById(R.id.titlePopularCoffee)
+        private val priceTextView: TextView = itemView.findViewById(R.id.titlePriceCoffee)
+        private val addButton: AppCompatImageButton = itemView.findViewById(R.id.button)
+
+        fun bind(popular: Popular) {
+            titleTextView.text = popular.title
+            priceTextView.text = "$${popular.price}"
+
+            Glide.with(itemView.context)
+                .load(popular.picUrl)
+                .into(coffeeImageView)
+
+            itemView.setOnClickListener {
+                onItemClick(popular)
+            }
+
+            addButton.setOnClickListener {
+                onAddToCart(popular)
+            }
+        }
+    }
+
+    companion object DiffCallback : DiffUtil.ItemCallback<Popular>() {
+        override fun areItemsTheSame(oldItem: Popular, newItem: Popular): Boolean {
+            return oldItem.id == newItem.id
+        }
+
+        override fun areContentsTheSame(oldItem: Popular, newItem: Popular): Boolean {
+            return oldItem == newItem
+        }
+    }
+}
+package com.anton.shopcoffeapp.presentation.fragments
+
+import android.app.AlertDialog
+import android.content.Context
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.data.model.OrderStatus
+import com.anton.shopcoffeapp.databinding.FragmentCartBinding
+import com.anton.shopcoffeapp.presentation.adapters.CartAdapter
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+
+class CartFragment : Fragment() {
+
+    private var _binding: FragmentCartBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var cartAdapter: CartAdapter
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentCartBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        setupAdapter()
+        setupObservers()
+        setupListeners()
+    }
+
+    private fun setupAdapter() {
+        cartAdapter = CartAdapter(
+            onQuantityChanged = { itemId, quantity ->
+                viewModel.updateQuantity(itemId, quantity)
+            },
+            onItemRemoved = { itemId ->
+                showRemoveConfirmationDialog(itemId)
+            }
+        )
+
+        binding.recyclerView.apply {
+            adapter = cartAdapter
+            layoutManager = LinearLayoutManager(requireContext())
+        }
+    }
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.cartItems.collect { cartItems ->
+                    cartAdapter.submitList(cartItems)
+                    updateEmptyState(cartItems.isEmpty())
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(
+                    viewModel.cartSubtotal,
+                    viewModel.deliveryFee,
+                    viewModel.tax,
+                    viewModel.discountAmount,
+                    viewModel.cartTotal
+                ) { subtotal, delivery, tax, discount, total ->
+                    updatePriceDisplay(subtotal, delivery, tax, discount, total)
+                }.collect { }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isPromoApplied.collect { isApplied ->
+                    updatePromoCodeUI(isApplied)
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.promoError.collect { error ->
+                    error?.let {
+                        showToast(it)
+                        viewModel.clearPromoError()
+                    }
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.orderStatus.collect { status ->
+                    handleOrderStatus(status)
+                }
+            }
+        }
+    }
+
+    private fun setupListeners() {
+        binding.backImage.setOnClickListener {
+            findNavController().popBackStack()
+        }
+
+        binding.applyDiscountButton.setOnClickListener {
+            handlePromoCodeAction()
+        }
+
+        binding.discountCodeEditText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                handlePromoCodeAction()
+                true
+            } else false
+        }
+
+        binding.checkoutBtn.setOnClickListener {
+            proceedToCheckout()
+        }
+    }
+
+    private fun handlePromoCodeAction() {
+        if (viewModel.isPromoApplied.value) {
+            viewModel.removePromoCode()
+            binding.discountCodeEditText.text.clear()
+            showToast("Promo code removed")
+        } else {
+            val code = binding.discountCodeEditText.text.toString().trim()
+            if (code.isNotEmpty()) {
+                viewModel.applyPromoCode(code)
+                hideKeyboard()
+            } else {
+                showToast("Please enter a promo code")
+            }
+        }
+    }
+
+    private fun proceedToCheckout() {
+        if (viewModel.cartItems.value.isEmpty()) {
+            showToast("Your cart is empty")
+            return
+        }
+        showCheckoutDialog()
+    }
+
+    private fun showCheckoutDialog() {
+        val editText = EditText(requireContext()).apply {
+            hint = "Your name (optional)"
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.darkBrown))
+            setHintTextColor(ContextCompat.getColor(requireContext(), R.color.darkBrown))
+        }
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.AlertDialogTheme)
+            .setTitle("Checkout")
+            .setMessage("Enter your name for the order:")
+            .setView(editText)
+            .setPositiveButton("Place Order") { _, _ ->
+                val customerName = editText.text.toString().trim()
+                viewModel.createOrder(if (customerName.isNotEmpty()) customerName else null)
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        dialog.show()
+    }
+
+    private fun showRemoveConfirmationDialog(itemId: Int) {
+        AlertDialog.Builder(requireContext(), R.style.AlertDialogTheme)
+            .setTitle("Remove Item")
+            .setMessage("Are you sure you want to remove this item from cart?")
+            .setPositiveButton("Remove") { _, _ ->
+                viewModel.removeItem(itemId)
+                showToast("Item removed from cart")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun updatePriceDisplay(subtotal: Double, delivery: Double, tax: Double, discount: Double, total: Double) {
+        binding.subtotalValue.text = formatPrice(subtotal)
+        binding.deliveryValue.text = formatPrice(delivery)
+        binding.taxValue.text = formatPrice(tax)
+        binding.totalValue.text = formatPrice(total)
+
+        if (discount > 0) {
+            binding.discountRow.visibility = View.VISIBLE
+            binding.discountValue.text = "-${formatPrice(discount)}"
+        } else {
+            binding.discountRow.visibility = View.GONE
+        }
+
+        binding.deliveryLabel.text = if (delivery > 0) "Delivery Fee" else "Free Delivery"
+    }
+
+    private fun updatePromoCodeUI(isApplied: Boolean) {
+        if (isApplied) {
+            binding.applyDiscountButton.text = "Remove"
+            binding.discountCodeEditText.isEnabled = false
+            binding.discountCodeEditText.setTextColor(ContextCompat.getColor(requireContext(), R.color.orange))
+        } else {
+            binding.applyDiscountButton.text = "Apply"
+            binding.discountCodeEditText.isEnabled = true
+            binding.discountCodeEditText.setTextColor(ContextCompat.getColor(requireContext(), R.color.darkBrown))
+        }
+    }
+
+    private fun handleOrderStatus(status: OrderStatus) {
+        when (status) {
+            is OrderStatus.Loading -> {
+                binding.checkoutBtn.isEnabled = false
+                binding.checkoutBtn.text = "Processing..."
+            }
+            is OrderStatus.Success -> {
+                binding.checkoutBtn.isEnabled = true
+                binding.checkoutBtn.text = "Proceed to Checkout"
+                showToast(status.message)
+                findNavController().popBackStack()
+                viewModel.clearOrderStatus()
+            }
+            is OrderStatus.Error -> {
+                binding.checkoutBtn.isEnabled = true
+                binding.checkoutBtn.text = "Proceed to Checkout"
+                showToast(status.message)
+                viewModel.clearOrderStatus()
+            }
+            else -> {
+                binding.checkoutBtn.isEnabled = true
+                binding.checkoutBtn.text = "Proceed to Checkout"
+            }
+        }
+    }
+
+    private fun updateEmptyState(isEmpty: Boolean) {
+        if (isEmpty) {
+            binding.recyclerView.visibility = View.GONE
+            binding.footerLayout.visibility = View.GONE
+            binding.discountLayout.visibility = View.GONE
+            binding.emptyStateLayout.visibility = View.VISIBLE
+        } else {
+            binding.recyclerView.visibility = View.VISIBLE
+            binding.footerLayout.visibility = View.VISIBLE
+            binding.discountLayout.visibility = View.VISIBLE
+            binding.emptyStateLayout.visibility = View.GONE
+        }
+    }
+
+    private fun formatPrice(price: Double): String = "$${"%.2f".format(price)}"
+
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.discountCodeEditText.windowToken, 0)
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+package com.anton.shopcoffeapp.presentation.fragments
+
+package com.anton.shopcoffeapp.presentation.fragments
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Toast
+import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.databinding.FragmentDashboardBinding
+import com.anton.shopcoffeapp.presentation.adapters.CategoryAdapter
+import com.anton.shopcoffeapp.presentation.adapters.PopularAdapter
+import com.anton.shopcoffeapp.presentation.ui.MainActivity
+import com.bumptech.glide.Glide
+import kotlinx.coroutines.launch
+
+class DashboardFragment : Fragment() {
+
+    private var _binding: FragmentDashboardBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var categoryAdapter: CategoryAdapter
+    private lateinit var popularAdapter: PopularAdapter
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentDashboardBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        binding.bannerProgressBar.isVisible = true
+        binding.bannerImageView.isVisible = false
+        binding.categoryProgressBar.isVisible = true
+        binding.categoryRecyclerView.isVisible = false
+        binding.popularCoffeeProgressBar.isVisible = true
+        binding.popularCoffeeRecyclerView.isVisible = false
+
+        setupAdapters()
+        setupObservers()
+        setupListeners()
+        viewModel.loadDashboard()
+    }
+
+    private fun setupAdapters() {
+        categoryAdapter = CategoryAdapter { category ->
+            viewModel.loadItems(categoryId = category.id)
+            findNavController().navigate(R.id.action_dashboard_to_itemList)
+        }
+
+        popularAdapter = PopularAdapter(
+            onItemClick = { popular ->
+                viewModel.selectItem(popular.toItem())
+                findNavController().navigate(R.id.action_dashboard_to_itemDetail)
+            },
+            onAddToCart = { popular ->
+                viewModel.selectItem(popular.toItem())
+                findNavController().navigate(R.id.action_dashboard_to_itemDetail)
+            }
+        )
+
+        binding.categoryRecyclerView.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = categoryAdapter
+        }
+
+        binding.popularCoffeeRecyclerView.apply {
+            layoutManager = GridLayoutManager(context, 2)
+            adapter = popularAdapter
+        }
+    }
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.isLoading.collect { isLoading ->
+                        if (!isLoading) {
+                            binding.bannerProgressBar.isVisible = false
+                            binding.categoryProgressBar.isVisible = false
+                            binding.popularCoffeeProgressBar.isVisible = false
+                            binding.bannerImageView.isVisible = true
+                            binding.categoryRecyclerView.isVisible = true
+                            binding.popularCoffeeRecyclerView.isVisible = true
+                        }
+                    }
+                }
+                launch {
+                    viewModel.banners.collect { banners ->
+                        if (banners.isNotEmpty()) {
+                            Glide.with(requireContext())
+                                .load(banners.first().url)
+                                .into(binding.bannerImageView)
+                        }
+                    }
+                }
+                launch {
+                    viewModel.categories.collect { categories ->
+                        categoryAdapter.submitList(categories)
+                    }
+                }
+                launch {
+                    viewModel.popularItems.collect { items ->
+                        popularAdapter.submitList(items)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setupListeners() {
+        binding.seeAllTextView.setOnClickListener {
+            viewModel.loadItems(categoryId = null)
+            findNavController().navigate(R.id.action_dashboard_to_itemList)
+        }
+
+        binding.searchInputEditText.onSearchClick = {
+            val query = binding.searchInputEditText.text.toString().trim()
+            if (query.isNotEmpty()) {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val matchedItem = viewModel.findItemByQuery(query)
+                    if (matchedItem != null) {
+                        viewModel.selectItem(matchedItem)
+                        findNavController().navigate(R.id.action_dashboard_to_itemDetail)
+                    } else {
+                        showToast("Item not found")
+                    }
+                }
+            } else {
+                showToast("Enter the search text")
+            }
+            binding.searchInputEditText.setText("")
+        }
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+package com.anton.shopcoffeapp.presentation.fragments
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Toast
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.data.model.CoffeeSize
+import com.anton.shopcoffeapp.databinding.FragmentDetailBinding
+import com.anton.shopcoffeapp.domain.model.Item
+import com.bumptech.glide.Glide
+import kotlinx.coroutines.launch
+
+class ItemDetailFragment : Fragment() {
+
+    private var _binding: FragmentDetailBinding? = null
+    private val binding get() = _binding!!
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentDetailBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        setupObservers()
+        setupListeners()
+        setupUI()
+    }
+
+    private fun setupObservers() {
+        // РљРѕР»РёС‡РµСЃС‚РІРѕ
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.quantity.collect { qty ->
+                    binding.titleQuantity.text = qty.toString()
+                }
+            }
+        }
+
+        // Р Р°Р·РјРµСЂ
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.selectedSize.collect { size ->
+                    updateSizeSelection(size)
+                }
+            }
+        }
+
+        // РџРѕРґСЃС‡С‘С‚ СЃСѓРјРјС‹
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.subtotal.collect { subtotal ->
+                    binding.titleSubTotalPrice.text = "$${"%.2f".format(subtotal)}"
+                }
+            }
+        }
+
+        // РЎР°Рј С‚РѕРІР°СЂ
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.selectedItem.collect { item ->
+                    item?.let { bindItem(it) }
+                }
+            }
+        }
+    }
+
+    private fun setupListeners() {
+        binding.backBtn.setOnClickListener { findNavController().popBackStack() }
+
+        binding.titleMinus.setOnClickListener { viewModel.decreaseQuantity() }
+        binding.titlePlus.setOnClickListener { viewModel.increaseQuantity() }
+
+        binding.titleSmall.setOnClickListener { viewModel.changeSize(CoffeeSize.SMALL) }
+        binding.titleMedium.setOnClickListener { viewModel.changeSize(CoffeeSize.MEDIUM) }
+        binding.titleLarge.setOnClickListener { viewModel.changeSize(CoffeeSize.LARGE) }
+
+        binding.titleAddToCart.setOnClickListener {
+            viewModel.addToCart()
+            showToast("The product has been added to the cart!")
+            findNavController().navigate(R.id.cartFragment)
+        }
+
+        binding.picAddLover.setOnClickListener {
+            showToast("Added to favorites")
+        }
+    }
+
+    private fun setupUI() {
+        viewModel.selectedItem.value?.let { bindItem(it) }
+    }
+
+    private fun bindItem(item: Item) {
+        binding.titleCoffee.text = item.title
+        binding.extraDescription.text = item.description
+        binding.titleStar.text = "%.1f".format(item.rating)
+        Glide.with(requireContext()).load(item.picUrl).into(binding.picMain)
+    }
+
+    private fun updateSizeSelection(selectedSize: CoffeeSize) {
+        val sizes = listOf(
+            binding.titleSmall to CoffeeSize.SMALL,
+            binding.titleMedium to CoffeeSize.MEDIUM,
+            binding.titleLarge to CoffeeSize.LARGE
+        )
+
+        sizes.forEach { (textView, size) ->
+            if (size == selectedSize) {
+                textView.setBackgroundResource(R.drawable.stroke_brown_bg)
+            } else {
+                textView.setBackgroundResource(0)
+            }
+        }
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+package com.anton.shopcoffeapp.presentation.fragments
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.databinding.FragmentItemListBinding
+import com.anton.shopcoffeapp.presentation.adapters.ItemListAdapter
+import kotlinx.coroutines.launch
+
+class ItemListFragment : Fragment() {
+    private var _binding: FragmentItemListBinding? = null
+    private val binding get() = _binding!!
+
+    private lateinit var adapter: ItemListAdapter
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentItemListBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        binding.progressBar.isVisible = true
+        binding.recyclerView.isVisible = false
+
+        setupAdapter()
+        setupObservers()
+        setupListeners()
+    }
+
+    private fun setupAdapter() {
+        adapter = ItemListAdapter(
+            onItemClick = { item ->
+                viewModel.selectItem(item)
+                findNavController().navigate(R.id.itemDetailFragment)
+            },
+            onAddToCart = { item ->
+                viewModel.selectItem(item)
+                findNavController().navigate(R.id.itemDetailFragment)
+            }
+        )
+        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        binding.recyclerView.adapter = adapter
+    }
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.items.collect { items ->
+                        val isLoading = items.isEmpty()
+                        binding.progressBar.isVisible = isLoading
+                        binding.recyclerView.isVisible = !isLoading
+                        adapter.submitList(items)
+                    }
+                }
+                launch {
+                    viewModel.selectedCategory.collect { category ->
+                        binding.categoryTxt.text = if (category == null) {
+                            getString(R.string.all_products)
+                        } else {
+                            category.title
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setupListeners() {
+        binding.backImage.setOnClickListener {
+            findNavController().popBackStack()
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+package com.anton.shopcoffeapp.presentation.fragments
+
+import android.os.Bundle
+import androidx.fragment.app.Fragment
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.navigation.fragment.findNavController
+import com.anton.shopcoffeapp.R
+import com.anton.shopcoffeapp.databinding.FragmentSplashBinding
+
+class SplashFragment : Fragment() {
+    private var _binding: FragmentSplashBinding? = null
+    private val binding get() = _binding!!
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentSplashBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+
+        binding.buttonGetStarted.setOnClickListener {
+            findNavController().navigate(R.id.action_splash_to_dashboard)
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+package com.anton.shopcoffeapp.presentation.ui
+
+import androidx.appcompat.app.AppCompatActivity
+import com.anton.shopcoffeapp.databinding.ActivityMainBinding
+
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
+    private val coffeeRepo by lazy { CoffeeRepositoryImpl(CoffeeApiProvider.api) }
+    private val cartRepo by lazy { CartRepositoryImpl() }
+
+    val mainViewModel: MainViewModel by viewModels {
+        MainViewModelFactory(
+            GetBannersUseCase(coffeeRepo),
+            GetCategoriesUseCase(coffeeRepo),
+            GetPopularItemsUseCase(coffeeRepo),
+            GetItemsByCategoryUseCase(coffeeRepo),
+            GetAllItemsUseCase(coffeeRepo),
+            AddToCartUseCase(cartRepo),
+            cartRepo,
+            CreateOrderUseCase(coffeeRepo),
+            ApplyPromoCodeUseCase()
+        )
+    }
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+
+        setupNavigation()
+    }
+
+
+    private fun setupNavigation() {
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        val navController = navHostFragment.navController
+
+        binding.bottomNavigationBar.setupWithNavController(navController)
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            binding.bottomNavigationBar.visibility = if (destination.id == R.id.splashFragment) {
+                View.GONE
+            } else {
+                View.VISIBLE
+            }
+        }
+    }
+}
+package com.anton.shopcoffeapp.presentation.views
+
+import android.content.Context
+import android.util.AttributeSet
+import android.view.MotionEvent
+import androidx.appcompat.widget.AppCompatEditText
+
+class SearchEditText @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = android.R.attr.editTextStyle
+) : AppCompatEditText(context, attrs, defStyleAttr) {
+
+    var onSearchClick: (() -> Unit)? = null
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_UP) {
+            compoundDrawables[0]?.let { drawableStart ->
+                if (event.rawX <= left + drawableStart.bounds.width()) {
+                    performClick()
+                    onSearchClick?.invoke()
+                    return true
+                }
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+}

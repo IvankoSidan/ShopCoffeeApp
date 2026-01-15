@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Base.Theme.ShopCoffeApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/darkBrown</item>
+        <item name="colorSecondary">@color/orange</item>
+        <item name="android:colorBackground">@color/lightCream</item>
+
+        <item name="android:textColorPrimary">@color/darkBrown</item>
+        <item name="android:textColorSecondary">@color/grey</item>
+        <item name="colorSecondaryContainer">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.ShopCoffeApp" parent="Base.Theme.ShopCoffeApp" />
+
+    <style name="AlertDialogTheme" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorPrimary">@color/darkBrown</item>
+        <item name="android:textColorPrimary">@color/darkBrown</item>
+        <item name="buttonBarPositiveButtonStyle">@style/AlertDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/AlertDialogButton</item>
+    </style>
+
+    <style name="AlertDialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/orange</item>
+    </style>
+</resources>
